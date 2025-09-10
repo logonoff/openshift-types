@@ -1,0 +1,3 @@
+[submodule "openshift-api"]
+	path = openshift-api
+	url = https://github.com/openshift/api.git
