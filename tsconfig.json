@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "module": "nodenext",
+    "outDir": "./public/dist/build/",
+    "target": "es2024",
+    "allowJs": false,
+    "experimentalDecorators": true,
+    "sourceMap": true,
+    "noUnusedLocals": true,
+    "strict": true,
+  },
+  "exclude": [
+    ".yarn",
+    "**/node_modules",
+  ],
+  "include": ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.json"]
+}
