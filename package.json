@@ -1,4 +1,17 @@
 {
   "name": "openshift-types",
-  "packageManager": "yarn@4.5.2"
+  "packageManager": "yarn@4.5.2",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "crdtoapi": "^0.0.19",
+    "typescript": "^5.9.2",
+    "yaml": "^2.8.1"
+  },
+  "scripts": {
+    "generate:collect": "./collect-crds.sh",
+    "generate:openapi": "crdtoapi -i ./generated/openshift-crds -o ./generated/openshift-openapi.yaml --title 'OpenShift API'  --description 'Generated OpenAPI specification for OpenShift' --license Apache-2.0 --apiVersion \"$(git submodule status | grep openshift-api)\" --contactEmail 'git@logonoff.co'",
+    "generate:types": "mkdir -p ./generated/types && crdtotypes -i ./generated/openshift-openapi.yaml -o ./generated/types --out ./generated/types",
+    "generate": "yarn clean && yarn generate:collect && yarn generate:openapi && yarn generate:types",
+    "clean": "rm -rf ./generated"
+  }
 }
