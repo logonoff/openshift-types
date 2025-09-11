@@ -169,4 +169,5 @@ export interface K8sResourceCommon {
   metadata?: ObjectMetadata;
 }
 
-export type RequiredK8sResourceCommon<T extends keyof K8sResourceCommon> = K8sResourceCommon & Required<Pick<K8sResourceCommon, T>>;
+export type RequiredK8sResourceCommon<T extends keyof K8sResourceCommon> =
+  K8sResourceCommon & Required<Pick<K8sResourceCommon, T>>;

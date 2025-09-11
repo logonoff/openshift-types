@@ -1,15 +1,15 @@
-import { writeFile, writeFileSync } from "fs";
+import { writeFile } from "fs";
+import { JSONSchema4 } from "json-schema";
 import { compile } from "json-schema-to-typescript";
 import { resolve } from "path";
 import {
   cachedFetch,
   customizeK8sSchema,
-  schemaToTsConfig,
   extendK8sInterface,
+  IndexFileWriter,
+  schemaToTsConfig,
   toSafeString,
-  compareApiVersions,
 } from "./utils";
-import { JSONSchema4 } from "json-schema";
 
 const OPENSHIFT_K8S_SWAGGER =
   "https://raw.githubusercontent.com/openshift/kubernetes/refs/heads/master/api/openapi-spec/swagger.json";
@@ -40,14 +40,7 @@ export const generateKubernetesTypesFromSwagger = () => {
         }
       }
 
-      // generate types for each CRD definition
-      const compilePromises: Promise<{
-        baseName: string;
-        filePath: string;
-        interfaceName: string;
-        kind: string;
-        version: string;
-      }>[] = [];
+      const compilePromises = new IndexFileWriter();
 
       const interfaces: Set<string> = new Set();
 
@@ -60,6 +53,15 @@ export const generateKubernetesTypesFromSwagger = () => {
 
         const { group, version, kind } =
           def["x-kubernetes-group-version-kind"][0];
+
+        // Create a clone of the definition to avoid mutating the original
+        const schema: JSONSchema4 = {
+          definitions: swagger.definitions,
+          ...JSON.parse(JSON.stringify(def)),
+        };
+
+        customizeK8sSchema(schema, group, version, kind);
+
         const baseName = `${version}${kind}`;
         const fileName = `${baseName}.d.ts`;
         const interfaceName = toSafeString(`${version}${kind}Kind`);
@@ -74,92 +76,39 @@ export const generateKubernetesTypesFromSwagger = () => {
         }
         interfaces.add(interfaceName);
 
-        const filePath = resolve(
-          __dirname,
-          `../generated/types/kubernetes/${fileName}`,
-        );
-
-        // Clone the definition to avoid modifying the original
-        const modifiedDef: K8sDefinition = JSON.parse(JSON.stringify(def));
-
-        // Create a schema with the modified definition and all the referenced definitions
-        const schema: JSONSchema4 = {
-          definitions: swagger.definitions,
-          ...modifiedDef,
-        };
-
-        customizeK8sSchema(schema, group, version, kind);
-
-        const compilePromise = compile(schema, interfaceName, schemaToTsConfig)
+        const promise = compile(schema, interfaceName, schemaToTsConfig)
           .then((ts) => {
-            return new Promise<{
-              baseName: string;
-              filePath: string;
-              interfaceName: string;
-              version: string;
-              kind: string;
-            }>((resolve, reject) => {
-              writeFile(
-                filePath,
-                extendK8sInterface(ts, schema, interfaceName),
-                (err) => {
-                  if (err) {
-                    reject(err);
-                  } else {
-                    resolve({
-                      baseName,
-                      filePath,
-                      interfaceName,
-                      version,
-                      kind,
-                    });
-                  }
-                },
-              );
-            });
+            writeFile(
+              resolve(__dirname, `../generated/types/kubernetes/${fileName}`),
+              extendK8sInterface(ts, schema, interfaceName),
+              (err) => {
+                if (err) {
+                  console.error(
+                    `Error writing type file for CRD: ${name}`,
+                    err,
+                  );
+                }
+              },
+            );
+            return {
+              kind,
+              version,
+            };
           })
           .catch((err) => {
             console.error(`Error compiling schema for ${name}`, err);
             throw err;
           });
 
-        compilePromises.push(compilePromise);
+        compilePromises.addPromise(promise);
       }
 
-      // wait for all compile promises to finish
-      // then create an index file exporting all types
-      Promise.all(compilePromises).then((results) => {
-        const versions: Record<string, string[]> = {};
-
-        results.filter(Boolean).map((i) => {
-          if (!versions[i.baseName]) versions[i.baseName] = [];
-          versions[i.baseName].push(i.version);
-        });
-
-        const acc: string[] = [];
-
-        // the newest version of each baseName also get reexported without the version prefix
-        for (const [kind, vers] of Object.entries(versions)) {
-          const newest = vers.reduce((newest, current) => {
-            return compareApiVersions(newest, current) >= 0 ? newest : current;
-          }, vers[0]);
-          acc.push(`export type { ${toSafeString(newest)}${kind}Kind as ${kind}Kind } from './${newest}${kind}';`);
-          for (const ver of vers) {
-            acc.push(`export type { ${toSafeString(ver)}Kind } from './${ver}${kind}';`);
-          }
-        }
-
-        // create src/generated/kubernetes-crds.d.ts
-        writeFileSync(
-          resolve(__dirname, "../generated/types/kubernetes/index.d.ts"),
-          `// This file is autogenerated from the corresponding Kubernetes resources.
-// Do not edit this file directly.
-
-${acc.join("\n")}
-
-`,
-        );
-      });
+      compilePromises.writeIndexFile(
+        resolve(__dirname, "../generated/types/kubernetes/index.d.ts"),
+        `// This file is autogenerated from the corresponding Kubernetes resources.
+ // Do not edit this file directly.
+ `,
+      );
     })
     .catch((err) => {
       console.error(

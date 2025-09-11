@@ -1,7 +1,7 @@
 import { writeFileSync } from "fs";
 import { resolve } from "path";
-import { generateOpenShiftTypesFromAPI } from "./generate-openshift-crd-types";
 import { generateKubernetesTypesFromSwagger } from "./generate-k8s-resource-types";
+import { generateOpenShiftTypesFromAPI } from "./generate-openshift-crd-types";
 
 const generateIndexFile = () => {
   writeFileSync(
