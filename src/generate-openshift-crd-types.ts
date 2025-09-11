@@ -2,7 +2,13 @@ import { readdirSync, writeFile, writeFileSync } from "fs";
 import { compile } from "json-schema-to-typescript";
 import { extname, resolve } from "path";
 import type { CustomResourceDefinitionKind } from "./k8s/CustomResourceDefinition";
-import { customizeK8sSchema, dedupe, extendInterface,  loadYAML, schemaToTsConfig } from "./utils";
+import {
+  customizeK8sSchema,
+  dedupe,
+  extendInterface,
+  loadYAML,
+  schemaToTsConfig,
+} from "./utils";
 import { JSONSchema4 } from "json-schema";
 
 const fetchCRDs = (): Record<string, CustomResourceDefinitionKind> => {
@@ -28,7 +34,7 @@ const fetchCRDs = (): Record<string, CustomResourceDefinitionKind> => {
   }
 
   return CRDs;
-}
+};
 
 /**
  * Generate TypeScript types from OpenShift CustomResourceDefinitions (CRDs).
@@ -41,6 +47,8 @@ export const generateOpenShiftTypesFromAPI = () => {
 
   // generate types for each CRD
   const compilePromises: Promise<string>[] = [];
+
+  const interfaces: Set<string> = new Set();
 
   for (const [name, crd] of Object.entries(CRDs)) {
     const usedVersion = crd.spec.versions?.[0];
@@ -56,9 +64,19 @@ export const generateOpenShiftTypesFromAPI = () => {
 
     customizeK8sSchema(schema, group, usedVersion.name, kind);
 
-    const typeName = `${kind}Kind`;
+    const interfaceName = `${kind}Kind`;
 
-    const promise = compile(schema, typeName,  schemaToTsConfig)
+    // the parser may go through multiple versions of the same kind, but we only want one
+    // this prevents multiple file writers from writing to the same file
+    if (interfaces.has(interfaceName)) {
+      console.warn(
+        `Skipping ${name}: interface ${interfaceName} already exists.`,
+      );
+      continue;
+    }
+    interfaces.add(interfaceName);
+
+    const promise = compile(schema, interfaceName, schemaToTsConfig)
       .then((ts) => {
         // write type to src/generated/[baseName].d.ts
         const baseName =
@@ -69,7 +87,7 @@ export const generateOpenShiftTypesFromAPI = () => {
         );
         writeFile(
           filePath,
-          extendInterface(ts, typeName, "K8sResourceCommon"),
+          extendInterface(ts, interfaceName, "K8sResourceCommon"),
           (err) => {
             if (err) {
               console.error(`Error writing type file for CRD: ${name}`, err);

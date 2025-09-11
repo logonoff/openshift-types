@@ -63,10 +63,19 @@ export const cachedFetch: typeof fetch = async (url, options) => {
  *
  * If the group will not be present then "core" will be returned as part of the group in reference.
  */
-export const getReference = (group: string, version: string, kind: string): string => [group || 'core', version, kind].join('~');
+export const getReference = (
+  group: string,
+  version: string,
+  kind: string,
+): string => [group || "core", version, kind].join("~");
 
 /** Removes common properties addressed by `K8sResourceCommon` and add some TSDoc tags */
-export const customizeK8sSchema = (schema: JSONSchema7 | JSONSchema4, group: string, version: string, kind: string) => {
+export const customizeK8sSchema = (
+  schema: JSONSchema7 | JSONSchema4,
+  group: string,
+  version: string,
+  kind: string,
+) => {
   // delete common properties that are always present (we will use our own)
   if (schema.properties) {
     delete schema.properties.apiVersion;
@@ -80,7 +89,7 @@ export const customizeK8sSchema = (schema: JSONSchema7 | JSONSchema4, group: str
   // append @alpha or @beta to description if applicable
   if (version.includes("alpha")) schema.description += `\n@alpha`;
   else if (version.includes("beta")) schema.description += `\n@beta`;
-}
+};
 
 /** Preferred config options for `json-schema-to-typescript`. */
 export const schemaToTsConfig: Partial<Options> = {
@@ -97,4 +106,4 @@ export const schemaToTsConfig: Partial<Options> = {
   ignoreMinAndMaxItems: true,
   // prettier is done last in generate script
   format: false,
-}
+};

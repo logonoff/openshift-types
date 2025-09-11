@@ -1,7 +1,13 @@
 import { writeFile, writeFileSync } from "fs";
 import { compile } from "json-schema-to-typescript";
 import { resolve } from "path";
-import { cachedFetch, dedupe, extendInterface, customizeK8sSchema, schemaToTsConfig } from "./utils";
+import {
+  cachedFetch,
+  dedupe,
+  extendInterface,
+  customizeK8sSchema,
+  schemaToTsConfig,
+} from "./utils";
 import { JSONSchema4 } from "json-schema";
 
 const OPENSHIFT_K8S_SWAGGER =
@@ -38,6 +44,8 @@ export const generateKubernetesTypesFromSwagger = () => {
       // generate types for each CRD definition
       const compilePromises: Promise<string>[] = [];
 
+      const interfaces: Set<string> = new Set();
+
       for (const [name, def] of Object.entries(crdDefinitions)) {
         // Only generate types if there are properties defined
         if (!def.properties || Object.keys(def.properties).length === 0) {
@@ -48,6 +56,17 @@ export const generateKubernetesTypesFromSwagger = () => {
         const { group, version, kind } =
           def["x-kubernetes-group-version-kind"][0];
         const interfaceName = `${kind}Kind`;
+
+        // the parser may go through multiple versions of the same kind, but we only want one
+        // this prevents multiple file writers from writing to the same file
+        if (interfaces.has(interfaceName)) {
+          console.warn(
+            `Skipping ${name}: interface ${interfaceName} already exists.`,
+          );
+          continue;
+        }
+        interfaces.add(interfaceName);
+
         const fileName = `${kind}.d.ts`;
         const filePath = resolve(
           __dirname,
