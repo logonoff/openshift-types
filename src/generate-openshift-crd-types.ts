@@ -3,14 +3,12 @@ import { JSONSchema4 } from "json-schema";
 import { compile } from "json-schema-to-typescript";
 import { extname, resolve } from "path";
 import type { V1CustomResourceDefinitionKind } from "./k8s/CustomResourceDefinition";
-import {
-  customizeK8sSchema,
-  extendK8sInterface,
-  IndexFileWriter,
-  loadYAML,
-  schemaToTsConfig,
-  toSafeString,
-} from "./utils";
+import { customizeK8sSchema } from "./utils/customizeK8sSchema";
+import { extendK8sInterface } from "./utils/extendK8sInterface";
+import { IndexFileWriter } from "./utils/IndexFileWriter";
+import { loadYAML } from "./utils/loadYAML";
+import { schemaToTsConfig } from "./utils/schemaToTsConfig";
+import { toSafeString } from "./utils/toSafeString";
 
 const fetchCRDs = (): Record<string, V1CustomResourceDefinitionKind> => {
   // parse all CRDs from generated/openshift-crds
@@ -22,7 +20,7 @@ const fetchCRDs = (): Record<string, V1CustomResourceDefinitionKind> => {
     if (extname(file) !== ".yaml") continue;
 
     const doc = loadYAML<V1CustomResourceDefinitionKind>(
-      `../generated/openshift-crds/${file}`,
+      `../../generated/openshift-crds/${file}`,
     );
 
     if (doc.kind !== "CustomResourceDefinition" || !doc?.metadata?.name) {

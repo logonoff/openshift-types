@@ -10,7 +10,7 @@ import type { K8sResourceCommon } from "../K8sResourceCommon";
  *
  * @version `apiextensions.k8s.io~v1~CustomResourceDefinition`
  */
-export interface CustomResourceDefinitionKind extends K8sResourceCommon {
+export interface V1CustomResourceDefinitionKind extends K8sResourceCommon {
   spec: IoK8SApiextensionsApiserverPkgApisApiextensionsV1;
   status?: IoK8SApiextensionsApiserverPkgApisApiextensionsV117;
 }

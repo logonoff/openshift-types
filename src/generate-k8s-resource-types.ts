@@ -2,14 +2,12 @@ import { writeFile } from "fs";
 import { JSONSchema4 } from "json-schema";
 import { compile } from "json-schema-to-typescript";
 import { resolve } from "path";
-import {
-  cachedFetch,
-  customizeK8sSchema,
-  extendK8sInterface,
-  IndexFileWriter,
-  schemaToTsConfig,
-  toSafeString,
-} from "./utils";
+import { cachedFetch } from "./utils/cachedFetch";
+import { customizeK8sSchema } from "./utils/customizeK8sSchema";
+import { extendK8sInterface } from "./utils/extendK8sInterface";
+import { IndexFileWriter } from "./utils/IndexFileWriter";
+import { schemaToTsConfig } from "./utils/schemaToTsConfig";
+import { toSafeString } from "./utils/toSafeString";
 
 const OPENSHIFT_K8S_SWAGGER =
   "https://raw.githubusercontent.com/openshift/kubernetes/refs/heads/master/api/openapi-spec/swagger.json";
