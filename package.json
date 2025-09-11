@@ -13,13 +13,15 @@
     "typescript": "^5.9.2"
   },
   "scripts": {
-    "clean": "rm -rf ./generated",
-    "clean:all": "rm -rf ./generated ./cached",
+    "clean:cache": "rm -rf ./cached",
+    "clean:generated": "rm -rf ./generated",
+    "clean": "yarn clean:generated && yarn clean:cache",
     "generate:collect": "./collect-crds.sh",
+    "generate:format": "prettier --write ./generated/types --ignore-path > /dev/null",
     "generate:types:prep": "mkdir -p ./cached && mkdir -p ./generated/types/kubernetes && mkdir -p ./generated/types/openshift && cp ./src/K8sResourceCommon.d.ts ./generated/types",
     "generate:types": "yarn generate:types:prep && ts-node src/generate-types.ts",
-    "generate:format": "prettier --write ./generated/types --ignore-path > /dev/null",
-    "generate": "yarn clean && yarn generate:collect && yarn generate:types && yarn generate:format",
-    "prettier": "prettier --write ./src"
+    "generate": "yarn clean:generated && yarn generate:collect && yarn generate:types && yarn generate:format && yarn update",
+    "prettier": "prettier --write ./src",
+    "update": "cp ./generated/types/kubernetes/CustomResourceDefinition.d.ts ./src/k8s"
   }
 }

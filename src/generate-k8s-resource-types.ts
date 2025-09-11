@@ -1,7 +1,7 @@
 import { writeFile, writeFileSync } from "fs";
 import { compile } from "json-schema-to-typescript";
 import { resolve } from "path";
-import { cachedFetch, dedupe, extendInterface, bannerComment } from "./utils";
+import { cachedFetch, dedupe, extendInterface, customizeK8sSchema, schemaToTsConfig } from "./utils";
 import { JSONSchema4 } from "json-schema";
 
 const OPENSHIFT_K8S_SWAGGER =
@@ -55,34 +55,17 @@ export const generateKubernetesTypesFromSwagger = () => {
         );
 
         // Clone the definition to avoid modifying the original
-        const modifiedDef = JSON.parse(JSON.stringify(def));
-
-        // delete common properties that are always present (we will use our own)
-        delete modifiedDef.properties.apiVersion;
-        delete modifiedDef.properties.kind;
-        delete modifiedDef.properties.metadata;
-
-        // append group~version~kind to banner comment
-        modifiedDef.description =
-          (modifiedDef.description || "") +
-          `\n\n@version \`${group}~${version}~${kind}\``;
-
-        // append @alpha or @beta to description if applicable
-        if (version.includes("alpha")) modifiedDef.description += `\n@alpha`;
-        else if (version.includes("beta")) modifiedDef.description += `\n@beta`;
+        const modifiedDef: K8sDefinition = JSON.parse(JSON.stringify(def));
 
         // Create a schema with the modified definition and all the referenced definitions
-        const schema = {
+        const schema: JSONSchema4 = {
           definitions: swagger.definitions,
           ...modifiedDef,
         };
 
-        const compilePromise = compile(schema, interfaceName, {
-          additionalProperties: false,
-          bannerComment,
-          ignoreMinAndMaxItems: true,
-          format: false,
-        })
+        customizeK8sSchema(schema, group, version, kind);
+
+        const compilePromise = compile(schema, interfaceName, schemaToTsConfig)
           .then((ts) => {
             return new Promise<string>((resolve, reject) => {
               writeFile(
