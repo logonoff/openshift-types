@@ -162,5 +162,9 @@ export interface K8sResourceCommon {
    * More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
    */
   kind?: string;
+  /**
+   * metadata is the standard object metadata.
+   * More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+   */
   metadata?: ObjectMetadata;
 }
