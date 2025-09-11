@@ -3,9 +3,9 @@ import { compile } from "json-schema-to-typescript";
 import { resolve } from "path";
 import {
   cachedFetch,
-  extendInterface,
   customizeK8sSchema,
   schemaToTsConfig,
+  extendK8sInterface,
 } from "./utils";
 import { JSONSchema4 } from "json-schema";
 
@@ -86,7 +86,7 @@ export const generateKubernetesTypesFromSwagger = () => {
             return new Promise<string>((resolve, reject) => {
               writeFile(
                 filePath,
-                extendInterface(ts, interfaceName, "K8sResourceCommon"),
+                extendK8sInterface(ts, schema, interfaceName),
                 (err) => {
                   if (err) {
                     reject(err);

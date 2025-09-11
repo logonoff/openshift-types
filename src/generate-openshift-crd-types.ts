@@ -4,7 +4,7 @@ import { extname, resolve } from "path";
 import type { CustomResourceDefinitionKind } from "./k8s/CustomResourceDefinition";
 import {
   customizeK8sSchema,
-  extendInterface,
+  extendK8sInterface,
   loadYAML,
   schemaToTsConfig,
 } from "./utils";
@@ -86,7 +86,7 @@ export const generateOpenShiftTypesFromAPI = () => {
         );
         writeFile(
           filePath,
-          extendInterface(ts, interfaceName, "K8sResourceCommon"),
+          extendK8sInterface(ts, schema, interfaceName),
           (err) => {
             if (err) {
               console.error(`Error writing type file for CRD: ${name}`, err);
