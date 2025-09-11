@@ -3,9 +3,11 @@ import { compile } from "json-schema-to-typescript";
 import { extname, resolve } from "path";
 import type { CustomResourceDefinitionKind } from "./k8s/CustomResourceDefinition";
 import {
+  compareApiVersions,
   customizeK8sSchema,
   extendK8sInterface,
   loadYAML,
+  toSafeString,
   schemaToTsConfig,
 } from "./utils";
 import { JSONSchema4 } from "json-schema";
@@ -45,69 +47,95 @@ export const generateOpenShiftTypesFromAPI = () => {
   const CRDs = fetchCRDs();
 
   // generate types for each CRD
-  const compilePromises: Promise<string>[] = [];
+  const compilePromises: Promise<{
+    kind: string;
+    filePath: string;
+    interfaceName: string;
+    version: string;
+  }>[] = [];
 
   const interfaces: Set<string> = new Set();
 
   for (const [name, crd] of Object.entries(CRDs)) {
-    const usedVersion = crd.spec.versions?.[0];
-    if (!usedVersion || !usedVersion.schema?.openAPIV3Schema) {
-      console.warn(`Skipping ${name}: no schema defined.`);
-      continue;
-    }
-
-    const schema = usedVersion.schema.openAPIV3Schema as JSONSchema4;
-
     const group = crd.spec.group;
     const kind = crd.spec.names.kind;
 
-    customizeK8sSchema(schema, group, usedVersion.name, kind);
+    for (const usedVersion of crd.spec.versions ?? []) {
+      if (!usedVersion || !usedVersion.schema?.openAPIV3Schema) {
+        console.warn(`Skipping ${name}: no schema defined.`);
+        continue;
+      }
 
-    const interfaceName = `${kind}Kind`;
+      const schema = usedVersion.schema.openAPIV3Schema as JSONSchema4;
 
-    // the parser may go through multiple versions of the same kind, but we only want one
-    // this prevents multiple file writers from writing to the same file
-    if (interfaces.has(interfaceName)) {
-      console.warn(
-        `Skipping ${name}: interface ${interfaceName} already exists.`,
-      );
-      continue;
+      customizeK8sSchema(schema, group, usedVersion.name, kind);
+
+      const fileName = `${usedVersion.name}${kind}`;
+      const interfaceName = `${toSafeString(fileName)}Kind`;
+
+      // the parser may go through multiple versions of the same kind, but we only want one
+      // this prevents multiple file writers from writing to the same file
+      if (interfaces.has(interfaceName)) {
+        console.warn(
+          `Skipping ${name}: interface ${interfaceName} already exists.`,
+        );
+        continue;
+      }
+      interfaces.add(interfaceName);
+
+      const promise = compile(schema, interfaceName, schemaToTsConfig)
+        .then((ts) => {
+          // write type to src/generated/[fileName].d.ts
+          const filePath = resolve(
+            __dirname,
+            `../generated/types/openshift/${fileName}.d.ts`,
+          );
+          writeFile(
+            filePath,
+            extendK8sInterface(ts, schema, interfaceName),
+            (err) => {
+              if (err) {
+                console.error(`Error writing type file for CRD: ${name}`, err);
+              }
+            },
+          );
+          return {
+            kind,
+            interfaceName,
+            filePath,
+            version: usedVersion.name,
+          }
+        })
+        .catch((err) => {
+          console.error(`Error generating types for CRD: ${name}`, err);
+          throw err;
+        });
+
+      compilePromises.push(promise);
     }
-    interfaces.add(interfaceName);
-
-    const promise = compile(schema, interfaceName, schemaToTsConfig)
-      .then((ts) => {
-        // write type to src/generated/[baseName].d.ts
-        const baseName =
-          kind.match(/^v\d+(alpha\d+|beta\d+)?(.*)$/)?.[2] ?? kind;
-        const filePath = resolve(
-          __dirname,
-          `../generated/types/openshift/${baseName}.d.ts`,
-        );
-        writeFile(
-          filePath,
-          extendK8sInterface(ts, schema, interfaceName),
-          (err) => {
-            if (err) {
-              console.error(`Error writing type file for CRD: ${name}`, err);
-            }
-          },
-        );
-        return filePath;
-      })
-      .catch((err) => {
-        console.error(`Error generating types for CRD: ${name}`, err);
-        return "";
-      });
-
-    compilePromises.push(promise);
   }
 
   Promise.all(compilePromises).then((results) => {
-    const acc = results.filter(Boolean).map((filePath) => {
-      const typeName = filePath.match(/\/([^\/]+)\.d\.ts$/)?.[1];
-      return `export type { ${typeName}Kind } from './${typeName}';`;
+    const versions: Record<string, string[]> = {};
+
+    results.filter(Boolean).map((i) => {
+      if (!versions[i.kind]) versions[i.kind] = [];
+      versions[i.kind].push(i.version);
     });
+
+    const acc: string[] = [];
+
+    // the newest version of each baseName also get reexported without the version prefix
+    for (const [kind, vers] of Object.entries(versions)) {
+      const newest = vers.reduce((newest, current) => {
+        return compareApiVersions(newest, current) >= 0 ? newest : current;
+      }, vers[0]);
+      acc.push(`export type { ${toSafeString(newest)}${kind}Kind as ${kind}Kind } from './${newest}${kind}';`);
+      for (const ver of vers) {
+        acc.push(`export type { ${toSafeString(ver)}${kind}Kind } from './${ver}${kind}';`);
+      }
+    }
+
     // create src/generated/openshift-crds.d.ts
     writeFileSync(
       resolve(__dirname, "../generated/types/openshift/index.d.ts"),

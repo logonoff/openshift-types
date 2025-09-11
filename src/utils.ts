@@ -176,3 +176,5 @@ export const getNewestVersion = (versions: string[]): string => {
     return compareApiVersions(newest, current) >= 0 ? newest : current;
   }, versions[0]);
 };
+
+export { toSafeString } from "json-schema-to-typescript/dist/src/utils";
