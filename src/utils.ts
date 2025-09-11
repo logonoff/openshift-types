@@ -45,7 +45,7 @@ const areFieldsRequired = (
 const getCommonInterface = (schema: JSONSchema4) => {
   const requiredFields = areFieldsRequired(schema, ["apiVersion", "kind", "metadata"]);
   if (requiredFields.length === 0) return "K8sResourceCommon";
-  return `RequiredK8sResourceCommon<"${requiredFields.join('" | "') }">`;
+  return `RequiredK8sResourceCommon<"${requiredFields.join('" | "')}">`;
 }
 
 /** Extend a TypeScript interface string with the appropriate K8sResourceCommon variant */
@@ -130,4 +130,49 @@ export const schemaToTsConfig: Partial<Options> = {
   ignoreMinAndMaxItems: true,
   // prettier is done last in generate script
   format: false,
+};
+
+/** Stages of a k8s version */
+export enum Stage {
+  Alpha = 0,
+  Beta = 1,
+  Stable = 2,
+}
+
+/** Get the parsed version components from a k8s apiVersion string (e.g. "v1", "v1beta1", "v2alpha3"). */
+export const parseVersion = (v: string) => {
+  const match = v.match(/^v(\d+)(?:(alpha|beta)(\d+))?$/);
+  if (!match) return null;
+  const major = parseInt(match[1], 10);
+  const stage = match[2] === "alpha" ? 0 : match[2] === "beta" ? 1 : 2;
+  const minor = parseInt(match[3] || "0", 10);
+  return { major, stage, minor } satisfies {
+    major: number;
+    stage: Stage;
+    minor: number;
+  }
+};
+
+/** Compare two k8s apiVersions (e.g. "v1", "v1beta1", "v2alpha3") */
+export const compareApiVersions = (a: string, b: string): number => {
+  const verA = parseVersion(a);
+  const verB = parseVersion(b);
+  if (!verA || !verB) {
+    // If either version is unparsable, consider them equal
+    return 0;
+  }
+  if (verA.major !== verB.major) {
+    return verA.major - verB.major;
+  }
+  if (verA.stage !== verB.stage) {
+    return verA.stage - verB.stage;
+  }
+  return verA.minor - verB.minor;
+};
+
+/** Get the newest k8s apiVersion from a list of versions */
+export const getNewestVersion = (versions: string[]): string => {
+  return versions.reduce((newest, current) => {
+    return compareApiVersions(newest, current) >= 0 ? newest : current;
+  }, versions[0]);
 };
