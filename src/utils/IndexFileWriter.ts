@@ -1,5 +1,6 @@
 import { writeFileSync } from "fs";
 import { toSafeString } from "json-schema-to-typescript/dist/src/utils";
+import { resolve } from "path";
 
 /** Stages of a k8s version */
 enum Stage {
@@ -39,17 +40,20 @@ const compareApiVersions = (a: string, b: string): number => {
   return verA.minor - verB.minor;
 };
 
-/** Get the newest k8s apiVersion from a list of versions */
-const getNewestVersion = (versions: string[]): string => {
-  return versions.reduce((newest, current) => {
-    return compareApiVersions(newest, current) >= 0 ? newest : current;
-  }, versions[0]);
-};
-
 export interface CompilePromiseMetadata {
   kind: string;
   version: string;
+  interfaceName: string;
+  fileName: string;
 }
+
+/** Get the newest k8s apiVersion from a list of versions */
+const getNewestVersion = (versions: CompilePromiseMetadata[]): CompilePromiseMetadata => {
+  return versions.reduce((newest, current) => {
+    return compareApiVersions(current.version, newest.version) > 0 ? current
+      : newest;
+  }, versions[0]);
+};
 
 export class IndexFileWriter {
   private promises: Promise<CompilePromiseMetadata>[] = [];
@@ -65,35 +69,43 @@ export class IndexFileWriter {
 `,
   ) {
     Promise.all(this.promises).then((results) => {
-      const versions: Record<string, string[]> = {};
+      const versions: Record<string, CompilePromiseMetadata[]> = {};
 
       results.filter(Boolean).map((i) => {
         if (!versions[i.kind]) versions[i.kind] = [];
-        versions[i.kind].push(i.version);
+        versions[i.kind].push(i);
       });
 
-      const acc: string[] = [];
+      const accLatest: string[] = [];
+      const accComprehensive: string[] = [];
 
       // the newest version of each baseName also get reexported without the version prefix
       for (const [kind, vers] of Object.entries(versions)) {
         const newest = getNewestVersion(vers);
 
-        acc.push(
-          `export type { ${toSafeString(newest)}${kind}Kind as ${kind}Kind } from './${newest}${kind}';`,
+        accLatest.push(
+          `export type { ${toSafeString(newest.interfaceName)} as ${kind}Kind } from './${newest.fileName}';`,
         );
 
         for (const ver of vers) {
-          acc.push(
-            `export type { ${toSafeString(ver)}${kind}Kind } from './${ver}${kind}';`,
+          accComprehensive.push(
+            `export type { ${toSafeString(ver.interfaceName)} } from './${ver.fileName}';`,
           );
         }
       }
 
-      // create index file
+      // create index files
       writeFileSync(
-        outputPath,
+        resolve(outputPath, "index.d.ts"),
         `${header}
-${acc.join("\n")}
+${accLatest.join("\n")}
+`,
+      );
+
+      writeFileSync(
+        resolve(outputPath, "all.d.ts"),
+        `${header}
+${accComprehensive.join("\n")}
 `,
       );
     });

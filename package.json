@@ -23,7 +23,7 @@
     "generate:types": "yarn generate:types:prep && ts-node src/generate-types.ts",
     "generate": "yarn clean:generated && yarn generate:collect && yarn generate:types && yarn generate:format && yarn update",
     "prettier": "prettier --write ./src",
-    "update": "cp ./generated/types/kubernetes/v1CustomResourceDefinition.d.ts ./src/k8s/CustomResourceDefinition.d.ts"
+    "update": "cp ./generated/types/kubernetes/*CustomResourceDefinition.d.ts ./src/k8s/CustomResourceDefinition.d.ts"
   },
   "prettier": {
     "plugins": [
