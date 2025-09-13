@@ -1,5 +1,5 @@
-import { readFileSync } from "fs";
-import { resolve } from "path";
+import { mkdirSync, readFileSync } from "fs";
+import { dirname, resolve } from "path";
 
 /** Fetch but the response is stored in disk */
 export const cachedFetch: typeof fetch = async (url, options) => {
@@ -8,6 +8,8 @@ export const cachedFetch: typeof fetch = async (url, options) => {
     "../../cached",
     encodeURIComponent(url.toString()) + ".json",
   );
+  mkdirSync(dirname(cachePath), { recursive: true });
+
   try {
     const data = readFileSync(cachePath, "utf8");
     return new Response(data, { status: 200 });

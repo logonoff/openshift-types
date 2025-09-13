@@ -1,3 +1,5 @@
+import { toSafeString } from "./toSafeString";
+
 /**
  * Provides a reference string that uniquely identifies the group, version, and kind of a k8s resource.
  *
@@ -13,3 +15,9 @@ export const getReference = (
   version: string,
   kind: string,
 ): string => [group || "core", version, kind].join("~");
+
+export const getReferenceInterfaceName = (
+  group: string,
+  version: string,
+  kind: string,
+): string => toSafeString(`${getReference(group, version, kind)}Kind`);

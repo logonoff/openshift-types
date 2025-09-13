@@ -19,11 +19,11 @@
     "clean": "yarn clean:generated && yarn clean:cache",
     "generate:collect": "./collect-crds.sh",
     "generate:format": "prettier --write ./generated/types --ignore-path > /dev/null",
-    "generate:types:prep": "mkdir -p ./cached && mkdir -p ./generated/types/kubernetes && mkdir -p ./generated/types/openshift && cp ./src/K8sResourceCommon.d.ts ./generated/types",
+    "generate:types:prep": "mkdir -p ./generated/types && cp ./src/K8sResourceCommon.d.ts ./generated/types",
     "generate:types": "yarn generate:types:prep && ts-node src/generate-types.ts",
     "generate": "yarn clean:generated && yarn generate:collect && yarn generate:types && yarn generate:format && yarn update",
     "prettier": "prettier --write ./src",
-    "update": "cp ./generated/types/kubernetes/*CustomResourceDefinition.d.ts ./src/k8s/CustomResourceDefinition.d.ts"
+    "update": "cp ./generated/types/kubernetes/**/CustomResourceDefinition.d.ts ./src/k8s/v1/CRD/CustomResourceDefinition.d.ts"
   },
   "prettier": {
     "plugins": [
